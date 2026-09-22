@@ -1,67 +1,16 @@
-```
-FROM registry.redhat.io/rhel9/rhel-bootc:9.4
+FROM registry.redhat.io/rhel9/rhel-bootc:9.4 
 
-# Install mandatory client packages for Satellite management &amp; pull-mode REX
+# Install mandatory client packages for Satellite management & pull-mode REX 
 RUN dnf -y install \
-    subscription-manager \
+    subscription-manager \ 
     insights-client \
-    foreman_ygg_worker \
-    chrony \
+    foreman_ygg_worker \ 
+    chrony \ 
     openssh-server \
-    &amp;&amp; dnf clean all
+    && dnf clean all 
 
-# Configure SSH daemon for hardened access
-RUN sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+# Configure SSH daemon for hardened access 
+RUN sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config 
 
-# Set default container entry point / init
+# Set default container entry point / init 
 CMD ["/sbin/init"]
-
-```
-
----
-
-### 🚀 2\. Image Mode Update &amp; Switch Playbook (`playbooks/05_bootc_image_mode_update.yml`)
-
-Satellite 6.19 provides default Remote Execution (REX) job templates under the **Bootc** job category, including `Bootc Action - Script Default`, `Bootc Rollback - Script Default`, `Bootc Status - Script Default`, `Bootc Switch - Script Default`, and `Bootc Upgrade - Script Default`[5].
-
-This playbook uses the `redhat.satellite.job_invocation` module to trigger a `Bootc Upgrade` or `Bootc Switch` action across target image-mode hosts via Satellite:
-
-```
----
-- name: "Manage RHEL Image Mode (bootc) Host Upgrades via Satellite"
-  hosts: localhost
-  gather_facts: false
-  vars_files:
-    - ../vault/vault.yml
-  vars:
-    target_search_query: "image_mode = true and organization = '{{ satellite_organization }}'"
-    new_bootc_image_url: "satellite.example.com/production/rhel9-bootc:v2.0"
-
-  module_defaults:
-    group/redhat.satellite.satellite:
-      username: "{{ satellite_username }}"
-      password: "{{ satellite_password }}"
-      server_url: "{{ satellite_url }}"
-      validate_certs: true
-
-  tasks:
-    - name: Trigger Bootc Upgrade on Image Mode Hosts
-      redhat.satellite.job_invocation:
-        job_template: "Bootc Upgrade - Script Default"
-        search_query: "{{ target_search_query }}"
-        state: present
-      register: bootc_upgrade_job
-
-    - name: Display Upgrade Job Invocation Details
-      ansible.builtin.debug:
-        msg: "Bootc Upgrade job started with ID: {{ bootc_upgrade_job.job_invocation.id }}"
-
-    - name: Optional - Switch Host to a New Image Registry Tag
-      redhat.satellite.job_invocation:
-        job_template: "Bootc Switch - Script Default"
-        inputs:
-          image: "{{ new_bootc_image_url }}"
-        search_query: "name = baremetal-node01.example.com"
-        state: present
-      when: perform_image_switch | default(false) | bool
-```
