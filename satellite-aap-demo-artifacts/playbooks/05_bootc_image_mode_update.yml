@@ -1,0 +1,37 @@
+--- 
+- name: "Manage RHEL Image Mode (bootc) Host Upgrades via Satellite" 
+  hosts: localhost 
+  gather_facts: false 
+  vars_files: 
+    - ../vault/vault.yml 
+  vars: 
+    target_search_query: "image_mode = true and organization = '{{ satellite_organization }}'" 
+    new_bootc_image_url: "satellite.example.com/production/rhel9-bootc:v2.0" 
+  
+  module_defaults: 
+    group/redhat.satellite.satellite: 
+      username: "{{ satellite_username }}" 
+      password: "{{ satellite_password }}" 
+      server_url: "{{ satellite_url }}" 
+      validate_certs: true 
+      
+  tasks: 
+    - name: Trigger Bootc Upgrade on Image Mode Hosts 
+      redhat.satellite.job_invocation: 
+        job_template: "Bootc Upgrade - Script Default" 
+        search_query: "{{ target_search_query }}" 
+        state: present 
+      register: bootc_upgrade_job 
+      
+    - name: Display Upgrade Job Invocation Details 
+      ansible.builtin.debug: 
+        msg: "Bootc Upgrade job started with ID: {{ bootc_upgrade_job.job_invocation.id }}" 
+        
+    - name: Optional - Switch Host to a New Image Registry Tag 
+      redhat.satellite.job_invocation:   
+        job_template: "Bootc Switch - Script Default" 
+        inputs: 
+          image: "{{ new_bootc_image_url }}" 
+        search_query: "name = baremetal-node01.example.com" 
+        state: present 
+      when: perform_image_switch | default(false) | bool
