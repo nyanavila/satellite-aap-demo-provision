@@ -1,0 +1,44 @@
+---
+- name: "Day-0: Configure Satellite Content Pipeline & Proxies"
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../vault/vault.yml
+  vars_files:
+    - ../group_vars/all.yml
+  module_defaults:
+    group/redhat.satellite.satellite:
+      username: "{{ satellite_username }}"
+      password: "{{ satellite_password }}"
+      server_url: "{{ satellite_url }}"
+      validate_certs: true
+
+  tasks:
+    - name: Ensure Lifecycle Environments Exist
+      redhat.satellite.lifecycle_environment:
+        name: "{{ item.name }}"
+        prior: "{{ item.prior }}"
+        organization: "{{ satellite_organization }}"
+        state: present
+      loop:
+        - { name: 'Development', prior: 'Library' }
+        - { name: 'Testing', prior: 'Development' }
+        - { name: 'Production', prior: 'Testing' }
+
+    - name: Create RHEL Content View
+      redhat.satellite.content_view:
+        name: "{{ content_view_name }}"
+        organization: "{{ satellite_organization }}"
+        repositories:
+          - name: "Red Hat Enterprise Linux 9 for x86_64 - BaseOS RPMs 9"
+            product: "Red Hat Enterprise Linux for x86_64"
+          - name: "Red Hat Enterprise Linux 9 for x86_64 - AppStream RPMs 9"
+            product: "Red Hat Enterprise Linux for x86_64"
+
+    - name: Create Production Activation Key
+      redhat.satellite.activation_key:
+        name: "{{ activation_key_name }}"
+        organization: "{{ satellite_organization }}"
+        lifecycle_environment: "{{ lifecycle_environment_prod }}"
+        content_view: "{{ content_view_name }}"
+        state: present

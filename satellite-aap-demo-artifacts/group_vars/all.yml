@@ -1,0 +1,26 @@
+---
+# Shared across playbooks. Values that are host-group parameters in Satellite
+# (ansible_tower_api_url, ansible_job_template_id, ansible_host_config_key)
+# are intentionally kept here too so 02_satellite_hostgroup_callback_prep.yml
+# and any AAP-side lookups stay in sync with a single source of truth.
+aap_api_url: "https://aap.example.com/api/controller/v2"
+aap_job_template_id: "101"
+
+content_view_name: "CV_RHEL_SysAdmin"
+lifecycle_environment_prod: "Production"
+activation_key_name: "rhel-sysadmin-prod-key"
+hostgroup_name: "HG_RHEL9_SysAdmin_Prod"
+
+# Verified against this Satellite instance's live SCAP content (id 5,
+# "Red Hat rhel9 default content" / ssg-rhel9-ds.xml). Do not hand-roll these
+# profile_id strings elsewhere — content_profile_cis is Level 2, not Level 1.
+scap_content_title: "Red Hat rhel9 default content"
+scap_profiles:
+  - key: cis_l1
+    profile_id: "xccdf_org.ssgproject.content_profile_cis_server_l1"
+    policy_name: "CIS RHEL9 Level 1 - Server"
+    weekday: "monday"
+  - key: cis_l2
+    profile_id: "xccdf_org.ssgproject.content_profile_cis"
+    policy_name: "CIS RHEL9 Level 2 - Server"
+    weekday: "tuesday"

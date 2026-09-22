@@ -1,0 +1,43 @@
+---
+# The original blueprint referenced custom_kickstart_default.ks.erb and
+# dynamic_lvm_partitioning.erb as files but never uploaded them to Satellite —
+# templates only take effect once they exist as Template records associated
+# with the target OS/organization/location. This closes that gap.
+- name: "Day-0: Sync custom provisioning templates into Satellite"
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../vault/vault.yml
+  vars_files:
+    - ../group_vars/all.yml
+  module_defaults:
+    group/redhat.satellite.satellite:
+      username: "{{ satellite_username }}"
+      password: "{{ satellite_password }}"
+      server_url: "{{ satellite_url }}"
+      validate_certs: true
+
+  tasks:
+    - name: Upload dynamic_lvm_partitioning snippet
+      redhat.satellite.provisioning_template:
+        name: "dynamic_lvm_partitioning"
+        template_kind: snippet
+        template: "{{ lookup('file', '../templates/kickstart/snippets/dynamic_lvm_partitioning.erb') }}"
+        organizations:
+          - "{{ satellite_organization }}"
+        locations:
+          - "{{ satellite_location }}"
+        state: present
+
+    - name: Upload custom kickstart provisioning template
+      redhat.satellite.provisioning_template:
+        name: "Custom Kickstart Default SysAdmin"
+        template_kind: provision
+        template: "{{ lookup('file', '../templates/kickstart/custom_kickstart_default.ks.erb') }}"
+        operatingsystems:
+          - "RedHat 9"
+        organizations:
+          - "{{ satellite_organization }}"
+        locations:
+          - "{{ satellite_location }}"
+        state: present

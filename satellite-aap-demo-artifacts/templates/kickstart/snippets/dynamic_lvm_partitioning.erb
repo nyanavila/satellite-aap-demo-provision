@@ -1,0 +1,32 @@
+<%#
+kind: snippet
+name: dynamic_lvm_partitioning
+%>
+<%#
+  Uploaded as a plain snippet (not a Partition Table resource), so the
+  "#Dynamic" marker Foreman uses for Partition Table resources does not apply
+  here and is intentionally omitted. This runs as a %pre scriptlet from
+  custom_kickstart_default.ks.erb, computes swap size from RAM, and writes
+  /tmp/diskpart.cfg for the main kickstart body to %include.
+-%>
+MEMORY=$((`grep MemTotal: /proc/meminfo | sed 's/^MemTotal: *//' | sed 's/ .*//'` / 1024))
+if [ "$MEMORY" -lt 2048 ]; then
+    SWAP_MEMORY=$((MEMORY * 2))
+elif [ "$MEMORY" -lt 8192 ]; then
+    SWAP_MEMORY=$MEMORY
+elif [ "$MEMORY" -lt 65536 ]; then
+    SWAP_MEMORY=$((MEMORY / 2))
+else
+    SWAP_MEMORY=32768
+fi
+
+cat <<EOF > /tmp/diskpart.cfg
+zerombr
+clearpart --all --initlabel
+part /boot --fstype=xfs --size=1024 --asprimary
+part pv.01 --size=1 --grow
+volgroup vg_system pv.01
+logvol swap --fstype=swap --name=lv_swap --vgname=vg_system --size=$SWAP_MEMORY
+logvol / --fstype=xfs --name=lv_root --vgname=vg_system --size=10240
+logvol /var --fstype=xfs --name=lv_var --vgname=vg_system --size=20480 --grow
+EOF

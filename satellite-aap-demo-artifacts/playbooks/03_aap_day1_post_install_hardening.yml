@@ -1,0 +1,37 @@
+---
+- name: "Day-1: AAP Post-Provisioning Hardening & Setup"
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Ensure SSH Configuration Permitting Hardened Access
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin prohibit-password'
+        state: present
+      notify: Restart SSHD
+
+    - name: Verify Red Hat Insights Client Status
+      ansible.builtin.command: insights-client --status
+      register: insights_check
+      changed_when: false
+      failed_when: false
+
+    - name: Display Insights Client Status
+      ansible.builtin.debug:
+        var: insights_check.stdout
+
+    - name: Register with Insights if not already connected
+      # The stock Satellite kickstart only auto-triggers the "insights" snippet
+      # for os_major < 9 (verified against this instance's "Kickstart default"
+      # template). RHEL9 hosts here rely on RHSM registration enabling Insights
+      # via the activation key, so explicitly ensure it here as a safety net.
+      ansible.builtin.command: insights-client --register
+      when: "'Not registered' in insights_check.stdout or insights_check.rc != 0"
+
+  handlers:
+    - name: Restart SSHD
+      ansible.builtin.service:
+        name: sshd
+        state: restarted

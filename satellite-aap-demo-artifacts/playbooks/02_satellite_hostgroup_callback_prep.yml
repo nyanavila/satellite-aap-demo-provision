@@ -1,0 +1,51 @@
+---
+- name: "Day-1: Configure Satellite Host Group with AAP Callback Parameters"
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../vault/vault.yml
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    aap_host_config_key: "YOUR_GENERATED_HOST_CONFIG_KEY"
+
+  module_defaults:
+    group/redhat.satellite.satellite:
+      username: "{{ satellite_username }}"
+      password: "{{ satellite_password }}"
+      server_url: "{{ satellite_url }}"
+      validate_certs: true
+
+  tasks:
+    - name: Create SysAdmin Production Host Group
+      redhat.satellite.hostgroup:
+        name: "{{ hostgroup_name }}"
+        organization: "{{ satellite_organization }}"
+        location: "{{ satellite_location }}"
+        lifecycle_environment: "{{ lifecycle_environment_prod }}"
+        content_view: "{{ content_view_name }}"
+        # NOTE: pxe_loader intentionally omitted. This blueprint provisions via
+        # a PXE-less boot disk ISO (see Step 4 / hammer bootdisk), so a PXE/
+        # HTTP-boot loader setting on the hostgroup is irrelevant here and was
+        # misleading in the original draft ("Grub2 UEFI HTTP" implies HTTP
+        # Boot, a network-boot mechanism, not a mounted virtual-media ISO).
+        parameters:
+          - name: "kt_activation_keys"
+            value: "{{ activation_key_name }}"
+          # These four parameter names are verified against the real, stock
+          # "ansible_provisioning_callback" / "ansible_tower_callback_script"
+          # snippets shipped with this Satellite instance (they read these
+          # exact host_param() names) — do not rename them.
+          - name: "ansible_tower_provisioning"
+            value: "true"
+            parameter_type: "boolean"
+          - name: "ansible_tower_api_url"
+            value: "{{ aap_api_url }}"
+          - name: "ansible_job_template_id"
+            value: "{{ aap_job_template_id }}"
+          - name: "ansible_host_config_key"
+            value: "{{ aap_host_config_key }}"
+          - name: "host_registration_insights"
+            value: "true"
+            parameter_type: "boolean"
+        state: present

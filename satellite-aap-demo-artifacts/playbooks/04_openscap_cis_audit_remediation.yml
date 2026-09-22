@@ -1,0 +1,70 @@
+---
+# The original blueprint set a "foreman_scap_client_policies" role var with a
+# hand-written list of {profile_id, content_path, period, weekday}. Verified
+# against this Satellite instance's ansible_variables API: that role variable
+# actually defaults to "<%= @host.policies_enc %>" — it is rendered by Foreman
+# from policies already assigned to the host/hostgroup, not populated by hand.
+# Policy scheduling (period/weekday) and profile selection belong to
+# Satellite's own Policy resource (POST /api/compliance/policies), so this is
+# split into two plays: (1) create/assign the Policies in Satellite, using
+# the real scap_content/profile IDs on this instance, and (2) deploy the
+# client role with no policy override, letting it pick up @host.policies_enc.
+#
+# Also corrected: the original description said "CIS Level 1 & Level 2" but
+# only referenced content_profile_cis, which is Level 2 - Server only (verified
+# via GET /api/compliance/scap_contents/5). Level 1 is a distinct profile,
+# content_profile_cis_server_l1. Both are created here as separate policies.
+- name: "Day-1: Define CIS Compliance Policies in Satellite"
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../vault/vault.yml
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+    - name: Look up the RHEL9 SCAP content id
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/api/compliance/scap_contents?search={{ scap_content_title | urlencode }}"
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: true
+        return_content: true
+      register: scap_content_lookup
+
+    - name: Create/update CIS policies (Level 1 and Level 2)
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/api/compliance/policies"
+        method: POST
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: true
+        status_code: [200, 201, 422] # 422 = already exists; not idempotent via POST
+        body_format: json
+        body:
+          policy:
+            name: "{{ item.policy_name }}"
+            scap_content_id: "{{ (scap_content_lookup.json.results | first).id }}"
+            scap_content_profile_id: "{{ (scap_content_lookup.json.results | first).scap_content_profiles | selectattr('profile_id', 'equalto', item.profile_id) | map(attribute='id') | first }}"
+            period: weekly
+            weekday: "{{ item.weekday }}"
+            deploy_by: ansible
+            hostgroup_ids: [] # fill in after 02_satellite_hostgroup_callback_prep.yml creates the hostgroup
+      loop: "{{ scap_profiles }}"
+      loop_control:
+        label: "{{ item.policy_name }}"
+
+- name: "Day-1: Deploy OpenSCAP CIS Benchmark Audit Client"
+  hosts: all
+  become: true
+
+  roles:
+    - role: theforeman.foreman_scap_client
+      vars:
+        foreman_scap_client_server: "satellite.example.com"
+        foreman_scap_client_port: 9090
+        # foreman_scap_client_policies intentionally left at its default
+        # (<%= @host.policies_enc %>) — policies assigned via the Satellite
+        # Policy resource above, not hard-coded here.

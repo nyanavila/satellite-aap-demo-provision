@@ -1,0 +1,6 @@
+---
+collections:
+  - name: redhat.satellite
+    version: ">=3.0.0"
+  - name: theforeman.foreman
+    version: ">=3.0.0"

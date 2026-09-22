@@ -1,0 +1,12 @@
+---
+# localhost group runs the Satellite-API-only playbooks (01, 02, 04's policy
+# setup task). Add real target hosts under rhel_sysadmin once they exist in
+# Satellite (or point this at a dynamic redhat.satellite inventory plugin).
+all:
+  children:
+    localhost_targets:
+      hosts:
+        localhost:
+          ansible_connection: local
+    rhel_sysadmin:
+      hosts: {}

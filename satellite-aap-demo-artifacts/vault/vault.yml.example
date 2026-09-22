@@ -1,0 +1,13 @@
+---
+# Copy this file to vault.yml and encrypt it before committing anything:
+#   cp vault/vault.yml.example vault/vault.yml
+#   ansible-vault encrypt vault/vault.yml
+# The blueprint this repo was generated from stored these values in plaintext
+# in a file literally named vault.yml — that defeats the purpose. Never commit
+# an unencrypted vault.yml; .gitignore in this repo blocks it by name.
+satellite_url: "https://satellite.example.com"
+satellite_username: "admin"
+satellite_password: "CHANGE_ME"
+satellite_organization: "Default Organization"
+satellite_location: "Default Location"
+http_proxy_url: "http://proxy.example.com:8080"
